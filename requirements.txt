@@ -1,0 +1,3 @@
+PyQt6>=6.5
+send2trash>=1.8
+darkdetect>=0.3.0

@@ -21,6 +21,10 @@ class ExcludeRulesDialog(QDialog):
         self.list_widget = QListWidget()
         self.list_widget.addItems(patterns)
         layout.addWidget(self.list_widget)
+        self.hint_label = QLabel()
+        self.hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.hint_label)
+        self._refresh_hint()
 
         input_layout = QHBoxLayout()
         self.rule_input = QLineEdit()
@@ -50,10 +54,18 @@ class ExcludeRulesDialog(QDialog):
         if text and not self.list_widget.findItems(text, Qt.MatchFlag.MatchExactly):
             self.list_widget.addItem(text)
             self.rule_input.clear()
+        self._refresh_hint()
 
     def remove_rule(self):
         for item in self.list_widget.selectedItems():
             self.list_widget.takeItem(self.list_widget.row(item))
+        self._refresh_hint()
+
+    def _refresh_hint(self):
+        is_empty = self.list_widget.count() == 0
+        self.hint_label.setVisible(is_empty)
+        if is_empty:
+            self.hint_label.setText(I18n.get_text("no_rules", self.lang))
 
     def get_patterns(self):
         return [self.list_widget.item(i).text() for i in range(self.list_widget.count())]

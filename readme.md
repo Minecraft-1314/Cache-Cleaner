@@ -36,37 +36,31 @@ A cross-platform desktop tool to find and clean up cache files and directories o
 
 ## 使用说明 | Usage Guide
 
-1. 从源码运行程序：在项目目录执行 `python cache_cleaner.py`<br>
+1. 安装依赖（Python 3.10+）：`pip install -r requirements.txt`<br>
+   Install the dependencies (Python 3.10+): `pip install -r requirements.txt`
+
+2. 从源码运行程序：在项目目录执行 `python cache_cleaner.py`<br>
    Run the program from source with `python cache_cleaner.py`
 
-2. 选择扫描方式；缓存目录模式下勾选需要扫描的缓存目录<br>
+3. 选择扫描方式；缓存目录模式下勾选需要扫描的缓存目录<br>
    Choose a scan mode; in Cache Directory mode, check the cache directories you want to scan
 
-3. 缓存后缀递归查找模式下，勾选需要匹配的后缀，并手动点击“选择目录”指定扫描目录<br>
+4. 缓存后缀递归查找模式下，勾选需要匹配的后缀，并手动点击“选择目录”指定扫描目录<br>
    In Recursive Cache Suffix Scan mode, check the suffixes and manually pick a directory with “Choose Directory”
 
-4. 点击“开始扫描”后，扫描结果实时出现在表格中；程序启动和修改勾选时不会自动扫描<br>
+5. 点击“开始扫描”后，扫描结果实时出现在表格中；程序启动和修改勾选时不会自动扫描<br>
    Click “Start Scan”, and results appear in the table in real time; the program does not auto scan on startup or after selection changes
 
-5. 在结果列表中勾选需要清理的缓存项，可搜索、排序并查看预计释放空间<br>
+6. 在结果列表中勾选需要清理的缓存项，可搜索、排序并查看预计释放空间<br>
    Check the cache items you want to clean; search, sort and review the estimated reclaimable space
 
-6. 点击“开始清理”，确认后即可删除；默认移动至回收站，被占用或权限不足的项目会保留在列表中供重试<br>
+7. 点击“开始清理”，确认后即可删除；默认移动至回收站，被占用或权限不足的项目会保留在列表中供重试<br>
    Click “Clean Selected”, confirm, and the items will be cleaned; items go to the Recycle Bin by default, and locked or permission-denied items remain available for retry
 
-7. 可通过“排除规则”设置通配符规则，匹配的项目将不在扫描结果中出现<br>
+8. 可通过“排除规则”设置通配符规则，匹配的项目将不在扫描结果中出现<br>
    You can set wildcard rules via “Exclude Rules”; matched items will be excluded from scan results
 
 ---
-
-## 项目结构 | Project Structure
-
-```text
-cache_cleaner.py    # 启动入口 | Launcher
-empty_folder_cleaner/
-|-- core/           # 配置、文案、位置/后缀目录、文件系统与扫描引擎 | Core logic
-|-- ui/             # 主窗口、主题、对话框与控件构造 | UI layer
-```
 
 ## 项目贡献者 | Contributors
 

@@ -43,16 +43,16 @@ class CacheScanEngine:
         return I18n.get_text(key, self.lang, **kwargs)
 
     def set_scan_roots(self, roots):
-        normalized = []
+        candidates = {}
         for path in roots or []:
             norm = os.path.normcase(os.path.normpath(path))
-            if not norm or norm in {r[0] for r in normalized}:
-                continue
-            if not any(self._is_within(norm, kept) for kept, _ in normalized):
-                normalized.append((norm, os.path.normpath(path)))
-        self.scan_roots = [path for _, path in sorted(
-            normalized, key=lambda item: os.path.normpath(item[1]).count(os.sep)
-        )]
+            if norm:
+                candidates[norm] = os.path.normpath(path)
+        kept = []
+        for norm in sorted(candidates, key=lambda item: (item.count(os.sep), item)):
+            if not any(self._is_within(norm, existing) for existing in kept):
+                kept.append(norm)
+        self.scan_roots = [candidates[norm] for norm in kept]
 
     def set_scan_mode(self, mode):
         self.scan_mode = mode
@@ -220,7 +220,10 @@ class CacheScanEngine:
             for current, dirs, files in walker:
                 if self.stop_event.is_set():
                     return
-                dirs[:] = sorted(d for d in dirs if not self._ignored_name(d))
+                dirs[:] = sorted(
+                    d for d in dirs
+                    if not self._ignored_path(os.path.join(current, d))
+                )
                 for name in sorted(files):
                     if self.stop_event.is_set():
                         return
@@ -297,6 +300,12 @@ class CacheScanEngine:
                     log_signal.emit(self._t("permission_denied", path=path), True)
                 elif error_key == "trash_unavailable":
                     log_signal.emit(self._t("trash_unavailable"), True)
+                elif error_key == "delete_incomplete":
+                    log_signal.emit(
+                        self._t("clean_error", path=path,
+                                error=self._t("delete_incomplete")),
+                        True,
+                    )
                 else:
                     log_signal.emit(
                         self._t("clean_error", path=path, error=error_key), True

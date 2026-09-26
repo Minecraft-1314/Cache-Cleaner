@@ -17,7 +17,7 @@ QPushButton { background-color: #2c2c2c; border: none; border-radius: 8px; paddi
 QPushButton:hover { background-color: #3c3c3c; }
 QPushButton:pressed { background-color: #505050; }
 QPushButton:disabled { color: #707070; }
-QProgressBar { border: none; border-radius: 6px; background-color: #2c2c2c; text-align: center; height: 10px; }
+QProgressBar { border: none; border-radius: 6px; background-color: #2c2c2c; text-align: center; min-height: 18px; }
 QProgressBar::chunk { background-color: #00bcd4; border-radius: 6px; }
 QLineEdit, QPlainTextEdit, QTableView, QComboBox { background-color: #1e1e1e; border: 1px solid #3c3c3c; border-radius: 6px; padding: 4px; color: #e0e0e0; }
 QLineEdit:focus, QComboBox:focus { border-color: #00bcd4; }
@@ -27,9 +27,13 @@ QTableView::item { padding: 4px; }
 QComboBox::drop-down { border: none; }
 QStatusBar { background-color: #121212; color: #e0e0e0; }
 QCheckBox { color: #e0e0e0; }
-QCheckBox::indicator { width: 18px; height: 18px; }
+QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #5a5a5a; border-radius: 4px; background-color: #1e1e1e; }
+QCheckBox::indicator:checked { background-color: #00bcd4; border-color: #00bcd4; }
 QListWidget { background-color: #1e1e1e; color: #e0e0e0; }
 """
+
+DARK_MUTED_TEXT = "#9e9e9e"
+LIGHT_MUTED_TEXT = "#5f5f5f"
 
 LIGHT_QSS = """
 QWidget { background-color: #f5f5f5; color: #202020; }
@@ -37,7 +41,7 @@ QPushButton { background-color: #ffffff; border: 1px solid #d0d0d0; border-radiu
 QPushButton:hover { background-color: #e0e0e0; }
 QPushButton:pressed { background-color: #cccccc; }
 QPushButton:disabled { color: #909090; }
-QProgressBar { border: 1px solid #d0d0d0; border-radius: 6px; background-color: #ffffff; text-align: center; height: 10px; }
+QProgressBar { border: 1px solid #d0d0d0; border-radius: 6px; background-color: #ffffff; text-align: center; min-height: 18px; }
 QProgressBar::chunk { background-color: #0088cc; border-radius: 6px; }
 QLineEdit, QPlainTextEdit, QTableView, QComboBox { background-color: #ffffff; border: 1px solid #d0d0d0; border-radius: 6px; padding: 4px; color: #202020; }
 QLineEdit:focus, QComboBox:focus { border-color: #0088cc; }
@@ -54,6 +58,13 @@ QListWidget { background-color: #ffffff; color: #202020; }
 
 def system_is_dark():
     return _DARKDETECT_AVAILABLE and darkdetect.isDark()
+
+
+def _apply_muted_labels(window, color):
+    for name in ("dir_intro_label", "suffix_intro_label"):
+        label = getattr(window, name, None)
+        if label is not None:
+            label.setStyleSheet(f"color: {color};")
 
 
 def apply_theme(window, dark):
@@ -74,6 +85,7 @@ def apply_theme(window, dark):
             "color: #00e5ff; border-bottom: 2px solid #00e5ff; padding-bottom: 4px;"
         )
         window.subtitle_label.setStyleSheet("color: #aaaaaa;")
+        _apply_muted_labels(window, DARK_MUTED_TEXT)
     else:
         app.setPalette(QApplication.style().standardPalette())
         window.setStyleSheet(LIGHT_QSS)
@@ -81,3 +93,4 @@ def apply_theme(window, dark):
             "color: #0055aa; border-bottom: 2px solid #0055aa; padding-bottom: 4px;"
         )
         window.subtitle_label.setStyleSheet("color: #666666;")
+        _apply_muted_labels(window, LIGHT_MUTED_TEXT)

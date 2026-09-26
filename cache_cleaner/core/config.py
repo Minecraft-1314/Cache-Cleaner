@@ -5,8 +5,6 @@ import os
 
 APP_ORG = "CacheCleaner"
 APP_NAME = "CacheCleaner"
-DEFAULT_CLUSTER_SIZE = 4096
-MAX_RECENT_DIRS = 8
 MAX_CLEAN_PREVIEW = 20
 LOG_MAX_BLOCKS = 500
 THEME_POLL_INTERVAL_MS = 2000
@@ -24,12 +22,18 @@ TABLE_SIZE_WIDTH = 110
 TABLE_TIME_WIDTH = 150
 TABLE_STATUS_WIDTH = 130
 TABLE_SELECT_WIDTH = 80
+TABLE_SELECT_COLUMN = 4
 IGNORE_DIALOG_MIN_WIDTH = 420
 
+
 def get_system_language():
+    code = ""
     try:
         locale.setlocale(locale.LC_ALL, "")
-        code, _ = locale.getlocale()
+        detected, _ = locale.getlocale()
+        code = detected or ""
     except Exception:
         code = os.environ.get("LC_ALL") or os.environ.get("LANG") or ""
-    return "zh" if code and code.lower().startswith("zh") else "en"
+    normalized = str(code).strip().lower().replace("-", "_")
+    is_chinese = normalized.startswith("zh") or "chinese" in normalized
+    return "zh" if is_chinese else "en"

@@ -1,9 +1,11 @@
 """Table model and sort/filter proxy for cache scan results."""
 
 from PyQt6.QtCore import (
-    QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt
+    QAbstractTableModel, QEvent, QModelIndex, QSortFilterProxyModel, Qt
 )
+from PyQt6.QtWidgets import QStyledItemDelegate
 
+from ..core.config import TABLE_SELECT_COLUMN
 from ..core.filesystem import format_size
 from ..core.i18n import I18n
 
@@ -50,7 +52,7 @@ class CacheTableModel(QAbstractTableModel):
                 return size
             if column == 2:
                 return mtime_text
-        if role == Qt.ItemDataRole.CheckStateRole and column == 4:
+        if role == Qt.ItemDataRole.CheckStateRole and column == TABLE_SELECT_COLUMN:
             return (
                 Qt.CheckState.Checked
                 if path in self._selected_paths
@@ -71,14 +73,14 @@ class CacheTableModel(QAbstractTableModel):
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
         flags = Qt.ItemFlag.ItemIsEnabled
-        if index.column() == 4:
+        if index.column() == TABLE_SELECT_COLUMN:
             flags |= Qt.ItemFlag.ItemIsUserCheckable
         return flags
 
     def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
         if (
             not index.isValid()
-            or index.column() != 4
+            or index.column() != TABLE_SELECT_COLUMN
             or role != Qt.ItemDataRole.CheckStateRole
             or not self._selectable
         ):
@@ -153,9 +155,6 @@ class CacheTableModel(QAbstractTableModel):
             return self._rows[row][0]
         return ""
 
-    def has_path(self, path):
-        return path in self._path_rows
-
     def size_at_path(self, path):
         row = self._path_rows.get(path)
         if row is not None:
@@ -181,8 +180,8 @@ class CacheTableModel(QAbstractTableModel):
             return
         self._selectable = selectable
         if self._rows:
-            top_left = self.index(0, 4)
-            bottom_right = self.index(self.rowCount() - 1, 4)
+            top_left = self.index(0, TABLE_SELECT_COLUMN)
+            bottom_right = self.index(self.rowCount() - 1, TABLE_SELECT_COLUMN)
             self.dataChanged.emit(
                 top_left, bottom_right, [Qt.ItemDataRole.CheckStateRole]
             )
@@ -208,15 +207,11 @@ class CacheTableModel(QAbstractTableModel):
         self._selected_paths.clear()
         self._emit_selection_changed()
 
-    def set_selected_paths(self, paths):
-        self._selected_paths = set(paths)
-        self._emit_selection_changed()
-
     def _emit_selection_changed(self):
         if not self._rows:
             return
-        top_left = self.index(0, 4)
-        bottom_right = self.index(self.rowCount() - 1, 4)
+        top_left = self.index(0, TABLE_SELECT_COLUMN)
+        bottom_right = self.index(self.rowCount() - 1, TABLE_SELECT_COLUMN)
         self.dataChanged.emit(
             top_left, bottom_right, [Qt.ItemDataRole.CheckStateRole]
         )
@@ -249,3 +244,26 @@ class CacheProxyModel(QSortFilterProxyModel):
         if left.column() == 1:
             return (left_value or 0) < (right_value or 0)
         return str(left_value or "") < str(right_value or "")
+
+
+class CheckStateDelegate(QStyledItemDelegate):
+    """Lets the whole cell toggle the check state, not just the indicator."""
+
+    def __init__(self, check_column, parent=None):
+        super().__init__(parent)
+        self.check_column = check_column
+
+    def editorEvent(self, event, model, option, index):
+        if index.column() != self.check_column:
+            return super().editorEvent(event, model, option, index)
+        if event.type() != QEvent.Type.MouseButtonRelease:
+            return super().editorEvent(event, model, option, index)
+        if event.button() != Qt.MouseButton.LeftButton:
+            return False
+        state = index.data(Qt.ItemDataRole.CheckStateRole)
+        if state is None:
+            return False
+        flipped = (Qt.CheckState.Unchecked
+                   if state == Qt.CheckState.Checked
+                   else Qt.CheckState.Checked)
+        return model.setData(index, flipped, Qt.ItemDataRole.CheckStateRole)

@@ -30,6 +30,15 @@ from .theme import apply_theme as _apply_theme, system_is_dark
 from .widgets import build_ui
 
 class MainWindow(QMainWindow):
+    @staticmethod
+    def _read_str_list(settings, key):
+        value = settings.value(key, [])
+        if isinstance(value, str):
+            return [value] if value else []
+        if isinstance(value, (list, tuple)):
+            return [item for item in value if isinstance(item, str)]
+        return []
+
     def __init__(self):
         super().__init__()
         self.settings = QSettings(APP_ORG, APP_NAME)
@@ -50,20 +59,26 @@ class MainWindow(QMainWindow):
         self.cache_locations = get_cache_locations()
         self.suffix_rules = get_suffix_rules()
 
-        self.selected_dirs = list(self.settings.value("selected_dirs", []))
-        if not any(os.path.isdir(path) for path in self.selected_dirs):
+        self.selected_dirs = self._read_str_list(self.settings, "selected_dirs")
+        if not self.settings.contains("selected_dirs"):
             default = first_available_location()
             self.selected_dirs = [default] if os.path.isdir(default) else []
         self.scan_root = self.settings.value("scan_root", "")
         if not os.path.isdir(self.scan_root):
             self.scan_root = ""
 
-        self.selected_suffixes = list(self.settings.value("selected_suffixes", []))
+        self.selected_suffixes = self._read_str_list(
+            self.settings, "selected_suffixes"
+        )
         if not self.selected_suffixes:
             self.selected_suffixes = get_default_suffix_tokens()
 
-        self.ignored_paths_raw = set(self.settings.value("ignored_paths", []))
-        self.exclude_patterns = list(self.settings.value("exclude_patterns", []))
+        self.ignored_paths_raw = set(
+            self._read_str_list(self.settings, "ignored_paths")
+        )
+        self.exclude_patterns = self._read_str_list(
+            self.settings, "exclude_patterns"
+        )
 
         self.engine = CacheScanEngine(
             scan_roots=self.selected_dirs, scan_mode=self.scan_mode, lang=self.lang
@@ -97,10 +112,15 @@ class MainWindow(QMainWindow):
         self.restore_geometry()
         self.show()
 
+        self.dark_timer = QTimer(self)
+        self.dark_timer.timeout.connect(self.check_system_theme)
+        self.sync_theme_polling()
+
+    def sync_theme_polling(self):
         if self.theme_mode == "system":
-            self.dark_timer = QTimer(self)
-            self.dark_timer.timeout.connect(self.check_system_theme)
             self.dark_timer.start(THEME_POLL_INTERVAL_MS)
+        else:
+            self.dark_timer.stop()
 
     def check_system_theme(self):
         if self.theme_mode != "system":
@@ -112,14 +132,20 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         self.engine.stop()
-        if self.scan_thread and self.scan_thread.isRunning():
-            self.scan_thread.quit()
-            self.scan_thread.wait(THREAD_QUIT_TIMEOUT_MS)
-        if self.clean_thread and self.clean_thread.isRunning():
-            self.clean_thread.quit()
-            self.clean_thread.wait(THREAD_QUIT_TIMEOUT_MS)
+        self._shutdown_thread(self.scan_thread)
+        self._shutdown_thread(self.clean_thread)
         self.save_settings()
         super().closeEvent(event)
+
+    @staticmethod
+    def _shutdown_thread(thread):
+        if thread is None or not thread.isRunning():
+            return
+        thread.quit()
+        if thread.wait(THREAD_QUIT_TIMEOUT_MS):
+            return
+        thread.terminate()
+        thread.wait()
 
     def save_settings(self):
         self.settings.setValue("language", self.lang)
@@ -377,6 +403,7 @@ class MainWindow(QMainWindow):
             self.theme_dark = True
         else:
             self.theme_dark = False
+        self.sync_theme_polling()
         self.apply_theme(self.theme_dark)
 
     def manage_exclude_rules(self):
@@ -398,6 +425,12 @@ class MainWindow(QMainWindow):
         open_action = menu.addAction(I18n.get_text("open_location", self.lang))
         copy_action = menu.addAction(I18n.get_text("copy_path", self.lang))
         exclude_action = menu.addAction(I18n.get_text("exclude_item", self.lang))
+        clear_action = None
+        if self.ignored_paths_raw:
+            menu.addSeparator()
+            clear_action = menu.addAction(
+                I18n.get_text("clear_ignored", self.lang)
+            )
         action = menu.exec(self.table.viewport().mapToGlobal(pos))
         if action == open_action:
             target = path if os.path.isdir(path) else os.path.dirname(path)
@@ -409,6 +442,16 @@ class MainWindow(QMainWindow):
             self.engine.set_ignored_paths(self.ignored_paths_raw)
             self.add_log(I18n.get_text("excluded_item", self.lang, path=path), False)
             self._mark_scope_dirty()
+        elif action == clear_action:
+            self.clear_ignored_paths()
+
+    def clear_ignored_paths(self):
+        if not self.ignored_paths_raw:
+            return
+        self.ignored_paths_raw.clear()
+        self.engine.set_ignored_paths(self.ignored_paths_raw)
+        self.save_settings()
+        self._mark_scope_dirty()
 
     def on_header_clicked(self, logicalIndex):
         if logicalIndex not in (0, 1, 2):
@@ -464,6 +507,7 @@ class MainWindow(QMainWindow):
         self.btn_stop.setText(t("stop"))
         self.recycle_checkbox.setText(t("use_recycle"))
         self.btn_manage_rules.setText(t("manage_rules"))
+        self.theme_label.setText(t("theme"))
         self.theme_combo.setItemText(0, t("system"))
         self.theme_combo.setItemText(1, t("dark"))
         self.theme_combo.setItemText(2, t("light"))
@@ -520,12 +564,6 @@ class MainWindow(QMainWindow):
         self.scan_root_path.setEnabled(not busy)
         self.recycle_checkbox.setEnabled(not busy)
         self.btn_manage_rules.setEnabled(not self.is_running)
-
-    def update_scan_buttons_state(self):
-        self.sync_ui_state()
-
-    def update_button_states(self, running=None):
-        self.sync_ui_state()
 
     def start_scan(self):
         if self.is_running or self.is_scanning:
@@ -649,8 +687,9 @@ class MainWindow(QMainWindow):
         self.sync_ui_state()
         self.overall_progress.setRange(0, 100)
         self.overall_progress.setValue(0)
-        self.show_message("error", error_msg)
-        self.status_bar.showMessage(error_msg)
+        message = I18n.get_text("error_scan", self.lang, error=error_msg)
+        self.show_message("error", message)
+        self.status_bar.showMessage(message)
 
     def select_all(self):
         self.model.select_all()
@@ -715,11 +754,12 @@ class MainWindow(QMainWindow):
         msg = QMessageBox(self)
         msg.setWindowTitle(I18n.get_text("confirm_clean_title", self.lang))
         msg.setText(template)
+        msg.setTextFormat(Qt.TextFormat.PlainText)
         msg.setIcon(QMessageBox.Icon.Question)
         msg.setStandardButtons(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
-        if msg.exec() == QMessageBox.StandardButton.No:
+        if msg.exec() != QMessageBox.StandardButton.Yes:
             return
         self.start_clean(to_clean)
 

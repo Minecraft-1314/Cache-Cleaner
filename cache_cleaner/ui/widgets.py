@@ -11,10 +11,10 @@ from PyQt6.QtWidgets import (
 from ..core.config import (
     FONT_FAMILY, LANG_COMBO_WIDTH, LOG_MAX_BLOCKS, SCAN_MODE_LOCATION,
     SCAN_MODE_SUFFIX, TABLE_SELECT_WIDTH, TABLE_SIZE_WIDTH, TABLE_STATUS_WIDTH,
-    TABLE_TIME_WIDTH
+    TABLE_TIME_WIDTH, TABLE_SELECT_COLUMN
 )
 from ..core.i18n import I18n
-from .table_model import CacheProxyModel, CacheTableModel
+from .table_model import CacheProxyModel, CacheTableModel, CheckStateDelegate
 
 
 def _heading_font(size, weight=QFont.Weight.Normal):
@@ -31,6 +31,7 @@ def build_header(window, content_layout):
     controls_layout = QHBoxLayout()
     theme_layout = QHBoxLayout()
     theme_label = QLabel(I18n.get_text("theme", window.lang))
+    window.theme_label = theme_label
     window.theme_combo = QComboBox()
     window.theme_combo.addItem(I18n.get_text("system", window.lang), "system")
     window.theme_combo.addItem(I18n.get_text("dark", window.lang), "dark")
@@ -98,7 +99,6 @@ def build_scope_panel(window, content_layout):
     dir_layout.addLayout(header)
     window.dir_intro_label = QLabel(I18n.get_text("dir_intro", window.lang))
     window.dir_intro_label.setWordWrap(True)
-    window.dir_intro_label.setStyleSheet("color: #777777;")
     dir_layout.addWidget(window.dir_intro_label)
 
     window.directory_list = QListWidget()
@@ -131,7 +131,6 @@ def build_scope_panel(window, content_layout):
     suffix_layout.addLayout(suffix_header)
     window.suffix_intro_label = QLabel(I18n.get_text("suffix_intro", window.lang))
     window.suffix_intro_label.setWordWrap(True)
-    window.suffix_intro_label.setStyleSheet("color: #777777;")
     suffix_layout.addWidget(window.suffix_intro_label)
 
     scan_root_row = QHBoxLayout()
@@ -195,6 +194,9 @@ def build_result_area(window, content_layout):
     window.proxy.setSourceModel(window.model)
     window.table = QTableView()
     window.table.setModel(window.proxy)
+    window.table.setItemDelegate(
+        CheckStateDelegate(TABLE_SELECT_COLUMN, window.table)
+    )
     header = window.table.horizontalHeader()
     header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
     header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
